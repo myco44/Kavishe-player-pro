@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="sw">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Kavishe Offline Media Studio</title>
+<style>
+:root{
+  --bg:#07121a; --card:#0b1720; --accent:#22c55e; --muted:#8aa0a8; --glass: rgba(255,255,255,0.03);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Arial,system-ui;background:linear-gradient(180deg,var(--bg),#041018);color:#e6f6f2}
+.app{max-width:1100px;margin:18px auto;padding:16px;display:grid;grid-template-columns:320px 1fr;gap:16px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.h1{font-size:18px;font-weight:700}
+.card{background:linear-gradient(180deg,var(--card),#061018);padding:12px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.5)}
+.uploader{display:flex;gap:8px;align-items:center}
+.btn{padding:8px 10px;border-radius:8px;border:none;background:var(--glass);color:var(--muted);cursor:pointer}
+.btn.primary{background:linear-gradient(90deg,var(--accent),#16a34a);color:#02110b}
+.search{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:#eaf3f0;margin-top:10px}
+.playlist{margin-top:12px;max-height:420px;overflow:auto}
+.track{padding:8px;border-radius:8px;display:flex;justify-content:space-between;gap:8px;align-items:center;cursor:pointer}
+.track:hover{background:rgba(255,255,255,0.02)}
+.track.active{background:linear-gradient(90deg, rgba(34,197,94,0.08), rgba(34,197,94,0.02));border-left:3px solid rgba(34,197,94,0.25)}
+.now{display:flex;gap:12px;align-items:center}
+.cover{width:72px;height:72px;border-radius:8px;background:linear-gradient(135deg,#07313a,#07202a);display:flex;align-items:center;justify-content:center;font-weight:700}
+.info{flex:1}
+.progress{width:100%;height:8px;background:rgba(255,255,255,0.03);border-radius:8px;overflow:hidden;margin-top:8px}
+.bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#16a34a)}
+.controls{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:10px}
+.small{font-size:12px;color:var(--muted)}
+.right-actions{display:flex;gap:8px;flex-wrap:wrap}
+.flex-col{display:flex;flex-direction:column;gap:8px}
+.editor{display:flex;gap:10px;flex-direction:column}
+.range{width:100%}
+.canvasVis{width:100%;height:120px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));margin-top:8px}
+.footer{margin-top:10px;text-align:center;color:var(--muted);font-size:13px}
+@media(max-width:900px){.app{grid-template-columns:1fr;padding:10px}.cover{display:none}}
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <div class="header">
+        <div>
+          <div class="h1">Kavishe Offline Studio</div>
+          <div class="small">Play • Trim audio offline • Merge clips • Record video clips</div>
+        </div>
+        <div class="small">Offline ✅</div>
+      </div>
+
+      <div class="uploader">
+        <label class="btn" for="fileInput">📁 Ongeza Files</label>
+        <input id="fileInput" type="file" accept="audio/*,video/*" multiple style="display:none"/>
+        <button class="btn" id="addUrl">🔗 Add URL (offline not required)</button>
+        <button class="btn" id="loadDemo">▶ Demo</button>
+      </div>
+
+      <input id="search" class="search" placeholder="Tafuta kichwa au muundo...">
+
+      <div class="playlist" id="playlist"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+        <div><label class="small">Shuffle <input id="shuffle" type="checkbox"></label></div>
+        <div><label class="small">Loop <input id="loop" type="checkbox"></label></div>
+        <div class="small">Rate
+          <select id="rate"><option>1</option><option>1.25</option><option>1.5</option><option>0.75</option></select>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <div class="small">Saved Clips: <span id="clipsCount">0</span></div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn" id="openClips">📂 View Clips</button>
+          <button class="btn" id="mergeClipsBtn">➕ Merge Selected</button>
+          <button class="btn" id="clearBtn">🗑 Clear</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card" style="display:flex;flex-direction:column">
+      <div class="now">
+        <div class="cover" id="cover">K</div>
+        <div class="info">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div id="nowTitle" style="font-weight:700">Hakuna kilichochaguliwa</div>
+              <div id="nowMeta" class="small">-</div>
+            </div>
+            <div class="right-actions">
+              <button class="btn" id="prevBtn">⏮</button>
+              <button class="btn primary" id="playBtn">▶</button>
+              <button class="btn" id="nextBtn">⏭</button>
+            </div>
+          </div>
+          <div class="progress" id="progress"><div class="bar" id="bar"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px">
+            <div id="curTime" class="small">0:00</div>
+            <div id="durTime" class="small">0:00</div>
+          </div>
+        </div>
+      </div>
+
+      <canvas id="vis" class="canvasVis"></canvas>
+
+      <div class="controls">
+        <button class="btn" id="favBtn">♡ Favorite</button>
+        <button class="btn" id="downloadBtn">⬇️ Download</button>
+        <button class="btn" id="shareBtn">🔗 Share</button>
+        <input id="vol" type="range" min="0" max="1" step="0.01" value="0.9">
+      </div>
+
+      <div class="editor" style="margin-top:10px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <label class="small">Mode:</label>
+          <select id="mode"><option value="audio">Audio</option><option value="video">Video</option></select>
+          <label class="small">Trim Start:</label><input id="startInput" class="range" type="number" min="0" value="0" step="0.1" style="width:100px"/>
+          <label class="small">Trim End:</label><input id="endInput" class="range" type="number" min="0" value="0" step="0.1" style="width:100px"/>
+          <button class="btn" id="markBtn">✂️ Mark</button>
+          <button class="btn primary" id="saveClipBtn">💾 Save Clip</button>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn" id="recordVideoBtn">🎥 Record Video Clip</button>
+          <button class="btn" id="exportWavBtn">🌊 Export Current Audio to WAV</button>
+          <div class="small">Resume: <input id="resumeToggle" type="checkbox" checked></div>
+        </div>
+
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn" id="trimPreviewBtn">▶ Preview Trim</button>
+          <button class="btn" id="downloadTrimBtn">⬇ Download Trim</button>
+        </div>
+      </div>
+
+      <div class="footer">Tip: Tumia "Add Files" kuchagua nyimbo/video zako. Hifadhi vipande na unganisha. App inafanya kazi offline.</div>
+    </div>
+  </div>
+
+<script>
+/* ============================
+  Kavishe Offline Media Studio
+  - Playlist stored in memory + localStorage (metadata)
+  - Blobs stored in IndexedDB (files + clips)
+  - Audio trimming via WebAudio (AudioBuffer slice -> WAV encode)
+  - Merge audio clips by concatenating AudioBuffers -> WAV
+  - Video clip by playing segment and recording via MediaRecorder
+  Limitations: video re-encoding quality depends on browser; audio trimming works client-side reliably.
+============================ */
+
+(async function(){
+const fileInput = document.getElementById('fileInput');
+const playlistEl = document.getElementById('playlist');
+const playBtn = document.getElementById('playBtn');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const nowTitle = document.getElementById('nowTitle');
+const nowMeta = document.getElementById('nowMeta');
+const curTime = document.getElementById('curTime');
+const durTime = document.getElementById('durTime');
+const bar = document.getElementById('bar');
+const progress = document.getElementById('progress');
+const vol = document.getElementById('vol');
+const rateSel = document.getElementById('rate');
+const shuffleChk = document.getElementById('shuffle');
+const loopChk = document.getElementById('loop');
+const search = document.getElementById('search');
+const modeSel = document.getElementById('mode');
+const startInput = document.getElementById('startInput');
+const endInput = document.getElementById('endInput');
+const markBtn = document.getElementById('markBtn');
+const saveClipBtn = document.getElementById('saveClipBtn');
+const trimPreviewBtn = document.getElementById('trimPreviewBtn');
+const downloadTrimBtn = document.getElementById('downloadTrimBtn');
+const exportWavBtn = document.getElementById('exportWavBtn');
+const recordVideoBtn = document.getElementById('recordVideoBtn');
+const resumeToggle = document.getElementById('resumeToggle');
+const addUrlBtn = document.getElementById('addUrl');
+const loadDemo = document.getElementById('loadDemo');
+const clipsCount = document.getElementById('clipsCount');
+const openClips = document.getElementById('openClips');
+const mergeClipsBtn = document.getElementById('mergeClipsBtn');
+const clearBtn = document.getElementById('clearBtn');
+
+let audio = new Audio();
+audio.crossOrigin="anonymous";
+let videoEl = document.createElement('video'); videoEl.crossOrigin="anonymous";
+videoEl.style.display='none'; document.body.appendChild(videoEl);
+
+let audioCtx=null, analyser=null, sourceNode=null;
+let visCanvas = document.getElementById('vis'), vctx = visCanvas.getContext('2d');
+function ensureAudioCtx(){
+  if(!audioCtx) {
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser(); analyser.fftSize=2048;
+  }
+  try{
+    if(!sourceNode && audio.src) {
+      sourceNode = audioCtx.createMediaElementSource(audio);
+      sourceNode.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    }
+  }catch(e){}
+}
+function drawVis(){
+  requestAnimationFrame(drawVis);
+  if(!analyser) return;
+  const bufferLength = analyser.frequencyBinCount;
+  const data = new Uint8Array(bufferLength);
+  analyser.getByteFrequencyData(data);
+  vctx.clearRect(0,0,visCanvas.width,visCanvas.height);
+  const barWidth = (visCanvas.width / bufferLength) * 2.5;
+  let x=0;
+  for(let i=0;i<bufferLength;i+=8){
+    const v=data[i];
+    const h=(v/255)*visCanvas.height;
+    vctx.fillStyle = 'rgba(34,197,94,0.9)';
+    vctx.fillRect(x,visCanvas.height-h,barWidth,h);
+    x+=barWidth+1;
+  }
+}
+window.addEventListener('resize',()=>{ visCanvas.width = document.querySelector('.card .now') ? document.querySelector('.card .now').clientWidth : 600; visCanvas.height=120; });
+
+visCanvas.width = 700; visCanvas.height = 120;
+drawVis();
+
+/* ---------- IndexedDB for storing blobs (files & clips) ---------- */
+const DB_NAME='kavishe_media_db', DB_VERSION=1;
+let db;
+function openDB(){ return new Promise((res,reject)=>{
+  const req = indexedDB.open(DB_NAME, DB_VERSION);
+  req.onupgradeneeded = (e)=> {
+    const idb = e.target.result;
+    if(!idb.objectStoreNames.contains('files')) idb.createObjectStore('files',{keyPath:'id'});
+    if(!idb.objectStoreNames.contains('clips')) idb.createObjectStore('clips',{keyPath:'id'});
+  };
+  req.onsuccess = ()=>{ db=req.result; res(db); };
+  req.onerror = (e)=>reject(e);
+});}
+await openDB();
+
+/* ---------- playlist (metadata) ---------- */
+let playlist = JSON.parse(localStorage.getItem('kavishe_playlist')||'[]');
+let current = parseInt(localStorage.getItem('kavishe_current')||'-1');
+let resumePositions = JSON.parse(localStorage.getItem('kavishe_resume')||'{}');
+let savedClips = JSON.parse(localStorage.getItem('kavishe_clips_meta')||'[]');
+
+function saveMeta(){ localStorage.setItem('kavishe_playlist', JSON.stringify(playlist)); localStorage.setItem('kavishe_current', String(current)); localStorage.setItem('kavishe_clips_meta', JSON.stringify(savedClips)); }
+function addFileToDB(name, blob){ return new Promise((res,rej)=>{
+  const tx = db.transaction('files','readwrite'); const store = tx.objectStore('files');
+  const id = Date.now() + '-' + Math.random().toString(36).slice(2,9);
+  store.put({id, name, blob, created:Date.now()});
+  tx.oncomplete=()=>res(id);
+  tx.onerror=(e)=>rej(e);
+});}
+function getFileFromDB(id){ return new Promise((res,rej)=>{ const tx=db.transaction('files'); const store=tx.objectStore('files'); const r=store.get(id); r.onsuccess=()=>res(r.result? r.result.blob : null); r.onerror=(e)=>rej(e); });}
+function saveClipBlobToDB(name, blob){ return new Promise((res,rej)=>{ const tx = db.transaction('clips','readwrite'); const store=tx.objectStore('clips'); const id = Date.now() + '-' + Math.random().toString(36).slice(2,9); store.put({id, name, blob, created:Date.now()}); tx.oncomplete=()=>res(id); tx.onerror=(e)=>rej(e); });}
+function getClipFromDB(id){ return new Promise((res,rej)=>{ const tx=db.transaction('clips'); const store=tx.objectStore('clips'); const r=store.get(id); r.onsuccess=()=>res(r.result? r.result.blob : null); r.onerror=(e)=>rej(e); });}
+
+/* ---------- UI render ---------- */
+function renderPlaylist(){
+  playlistEl.innerHTML='';
+  playlist.forEach((it,i)=>{
+    const div=document.createElement('div'); div.className='track'+(i===current? ' active':'');
+    div.innerHTML=`<div><strong>${it.title}</strong><div class="small">${it.type} • ${it.name}</div></div><div style="display:flex;gap:6px;align-items:center">
+      <button class="btn" data-i="${i}" data-action="play">▶</button>
+      <button class="btn" data-i="${i}" data-action="del">🗑</button>
+      </div>`;
+    playlistEl.appendChild(div);
+  });
+}
+renderPlaylist();
+
+/* ---------- file input handling ---------- */
+fileInput.addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files || []);
+  for(const f of files){
+    // store raw blob in IndexedDB
+    const id = await addFileToDB(f.name,f);
+    playlist.push({id, title:f.name, name:f.name, type:f.type.startsWith('video')? 'video' : 'audio'});
+  }
+  saveMeta(); renderPlaylist();
+});
+
+/* add url (remote) - note offline not available for remote if not fetched */
+addUrlBtn.addEventListener('click', async ()=>{
+  const u = prompt('Paste audio/video URL (http(s)...)');
+  if(!u) return;
+  const name = u.split('/').pop().split('?')[0] || 'stream';
+  playlist.push({id:null, title:name, name, url:u, type: u.match(/\.(mp3|wav|m4a|ogg)/i) ? 'audio' : 'video'});
+  saveMeta(); renderPlaylist();
+});
+
+/* demo */
+loadDemo.addEventListener('click', ()=>{
+  playlist.push({id:null, title:'Demo T-Rex (audio)', name:'t-rex-roar.mp3', url:'https://interactive-examples.mdn.mozilla.net/media/examples/t-rex-roar.mp3', type:'audio'});
+  playlist.push({id:null, title:'Demo Song (audio)', name:'song.mp3', url:'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', type:'audio'});
+  saveMeta(); renderPlaylist();
+});
+
+/* playlist actions */
+playlistEl.addEventListener('click',(e)=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  const i = Number(btn.dataset.i);
+  const action = btn.dataset.action;
+  if(action==='play'){ loadIndex(i); playCurrent(); }
+  if(action==='del'){ if(confirm('Futa hii entry?')){ const p=playlist.splice(i,1); saveMeta(); renderPlaylist(); } }
+});
+
+/* load index */
+async function resolveSource(item){
+  if(item.id){
+    const blob = await getFileFromDB(item.id);
+    return URL.createObjectURL(blob);
+  } else if(item.url){
+    return item.url;
+  }
+  return null;
+}
+async function loadIndex(i){
+  if(i<0 || i>=playlist.length) return;
+  current = i; saveMeta(); renderPlaylist();
+  const item = playlist[i];
+  const src = await resolveSource(item);
+  if(!src){ alert('Source not available.'); return; }
+  if(item.type==='video'){
+    audio.pause(); videoEl.src = src; videoEl.currentTime = 0; videoEl.playbackRate = Number(rateSel.value);
+    nowTitle.textContent = item.title; nowMeta.textContent = item.name + ' • video';
+    try{ await videoEl.play(); playBtn.textContent='⏸' }catch(e){ playBtn.textContent='▶' }
+    // sync timeupdate events with UI
+    videoEl.ontimeupdate = ()=>{ updateProgress(videoEl.currentTime, videoEl.duration); };
+    videoEl.onended = ()=> onEnded();
+    // ensure audio context for visualizer uses video element
+    try{
+      if(audioCtx && sourceNode){ sourceNode.disconnect(); sourceNode = null; }
+      ensureAudioCtx();
+      if(!sourceNode){ sourceNode = audioCtx.createMediaElementSource(videoEl); sourceNode.connect(analyser); analyser.connect(audioCtx.destination); }
+    }catch(e){}
+  } else {
+    videoEl.pause(); audio.src = src; audio.currentTime = 0; audio.playbackRate = Number(rateSel.value);
+    nowTitle.textContent = item.title; nowMeta.textContent = item.name + ' • audio';
+    try{ await audio.play(); playBtn.textContent='⏸' }catch(e){ playBtn.textContent='▶' }
+    audio.ontimeupdate = ()=>{ updateProgress(audio.currentTime, audio.duration); if(resumeToggle.checked) resumePositions[item.id||item.url] = audio.currentTime; localStorage.setItem('kavishe_resume', JSON.stringify(resumePositions)); };
+    audio.onended = ()=> onEnded();
+    ensureAudioCtx();
+    try{ if(!sourceNode){ sourceNode = audioCtx.createMediaElementSource(audio); sourceNode.connect(analyser); analyser.connect(audioCtx.destination); } }catch(e){}
+  }
+}
+
+/* play current control */
+async function playCurrent(){
+  if(current<0){ if(playlist.length>0) { await loadIndex(0); } else { alert('Playlist iko tupu'); } return; }
+  const itm = playlist[current];
+  if(itm.type==='video'){
+    if(videoEl.paused) { await videoEl.play(); playBtn.textContent='⏸' } else { videoEl.pause(); playBtn.textContent='▶' }
+  } else {
+    if(audio.paused) { await audio.play(); playBtn.textContent='⏸' } else { audio.pause(); playBtn.textContent='▶' }
+  }
+}
+playBtn.addEventListener('click', ()=> playCurrent());
+prevBtn.addEventListener('click', ()=> { if(playlist.length==0) return; current = (current-1+playlist.length)%playlist.length; loadIndex(current); });
+nextBtn.addEventListener('click', ()=> { if(playlist.length==0) return; if(shuffleChk.checked) current = Math.floor(Math.random()*playlist.length); else current = (current+1)%playlist.length; loadIndex(current); });
+
+function onEnded(){
+  if(loopChk.checked){ // replay same
+    if(playlist[current].type==='video'){ videoEl.currentTime=0; videoEl.play(); } else { audio.currentTime=0; audio.play(); }
+  } else { nextBtn.click(); }
+}
+
+function updateProgress(cur, dur){
+  curTime.textContent = formatTime(cur);
+  durTime.textContent = formatTime(dur);
+  const pct = (cur / (dur || 1)) * 100; bar.style.width = pct + '%';
+}
+
+/* format time */
+function formatTime(s){ if(!s || isNaN(s)) return '0:00'; const m = Math.floor(s/60); const sec = Math.floor(s%60).toString().padStart(2,'0'); return `${m}:${sec}`; }
+
+/* progress click to seek */
+progress.addEventListener('click', (e)=>{
+  const rect = progress.getBoundingClientRect(); const x = e.clientX - rect.left; const pct = x / rect.width;
+  const item = playlist[current];
+  if(!item) return;
+  if(item.type==='video'){ videoEl.currentTime = pct * videoEl.duration; } else { audio.currentTime = pct * audio.duration; }
+});
+
+/* volume & rate */
+vol.addEventListener('input', ()=>{ if(audio) audio.volume = Number(vol.value); if(videoEl) videoEl.volume = Number(vol.value); });
+rateSel.addEventListener('change', ()=>{ audio.playbackRate = Number(rateSel.value); videoEl.playbackRate = Number(rateSel.value); });
+
+/* search */
+search.addEventListener('input', ()=>{ const q = search.value.toLowerCase(); document.querySelectorAll('.track').forEach((el,i)=>{ const t = playlist[i]; if(!q) el.style.display='flex'; else el.style.display = (t.title.toLowerCase().includes(q) || (t.name||'').toLowerCase().includes(q)) ? 'flex' : 'none'; }); });
+
+/* -------------------------
+   TRIM (audio) logic using WebAudio: decode -> slice -> export WAV
+   ------------------------- */
+let lastMarked = {start:null,end:null}; // seconds
+markBtn.addEventListener('click', ()=>{
+  const item = playlist[current]; if(!item) return alert('Chagua wimbo kwanza.');
+  const cur = (item.type==='video') ? videoEl.currentTime : audio.currentTime;
+  if(lastMarked.start === null){ lastMarked.start = cur; startInput.value = cur.toFixed(2); alert('Start imewekwa: ' + formatTime(cur)); }
+  else { lastMarked.end = cur; endInput.value = cur.toFixed(2); alert('End imewekwa: ' + formatTime(cur)); }
+});
+
+/* helper: decode audio blob/url to AudioBuffer */
+async function fetchArrayBufferFor(item){
+  if(item.id){
+    const blob = await getFileFromDB(item.id);
+    return await blob.arrayBuffer();
+  } else if(item.url){
+    const resp = await fetch(item.url);
+    const ab = await resp.arrayBuffer(); return ab;
+  } else return null;
+}
+
+async function decodeAudioBufferFor(item){
+  ensureAudioCtx();
+  const ab = await fetchArrayBufferFor(item);
+  if(!ab) throw new Error('Source not available');
+  return await audioCtx.decodeAudioData(ab.slice(0)); // copy so browsers like Chrome work
+}
+
+/* slice AudioBuffer and return WAV blob */
+function audioBufferToWavBuffer(ab){
+  // interleave channels, 32-bit float -> 16-bit PCM
+  const numOfChan = ab.numberOfChannels;
+  const sampleRate = ab.sampleRate;
+  const length = ab.length * numOfChan * 2 + 44;
+  const buffer = new ArrayBuffer(length);
+  const view = new DataView(buffer);
+  // RIFF header
+  function writeString(view, offset, string){ for(let i=0;i<string.length;i++){ view.setUint8(offset+i, string.charCodeAt(i)); } }
+  let offset=0;
+  writeString(view, offset, 'RIFF'); offset+=4;
+  view.setUint32(offset, 36 + ab.length * numOfChan * 2, true); offset+=4;
+  writeString(view, offset, 'WAVE'); offset+=4;
+  writeString(view, offset, 'fmt '); offset+=4;
+  view.setUint32(offset, 16, true); offset+=4;
+  view.setUint16(offset, 1, true); offset+=2;
+  view.setUint16(offset, numOfChan, true); offset+=2;
+  view.setUint32(offset, sampleRate, true); offset+=4;
+  view.setUint32(offset, sampleRate * numOfChan * 2, true); offset+=4;
+  view.setUint16(offset, numOfChan * 2, true); offset+=2;
+  view.setUint16(offset, 16, true); offset+=2;
+  writeString(view, offset, 'data'); offset+=4;
+  view.setUint32(offset, ab.length * numOfChan * 2, true); offset+=4;
+  // write interleaved PCM
+  const interleaved = new Int16Array(ab.length * numOfChan);
+  let p=0;
+  for(let i=0;i<ab.length;i++){
+    for(let ch=0;ch<numOfChan;ch++){
+      let sample = ab.getChannelData(ch)[i];
+      sample = Math.max(-1, Math.min(1, sample));
+      interleaved[p++] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+    }
+  }
+  // write samples
+  for(let i=0;i<interleaved.length;i++){
+    view.setInt16(offset, interleaved[i], true); offset+=2;
+  }
+  return new Blob([view], {type:'audio/wav'});
+}
+
+async function createTrimmedWav(item, startSec, endSec){
+  // decode
+  const abuf = await decodeAudioBufferFor(item);
+  startSec = Math.max(0, startSec); endSec = Math.min(abuf.duration, endSec);
+  if(endSec <= startSec) throw new Error('Invalid trim range');
+  const sOff = Math.floor(startSec * abuf.sampleRate);
+  const eOff = Math.floor(endSec * abuf.sampleRate);
+  const frameCount = eOff - sOff;
+  const numberOfChannels = abuf.numberOfChannels;
+  const newBuf = audioCtx.createBuffer(numberOfChannels, frameCount, abuf.sampleRate);
+  for(let ch=0; ch<numberOfChannels; ch++){
+    const old = abuf.getChannelData(ch).subarray(sOff, eOff);
+    newBuf.copyToChannel(old, ch, 0);
+  }
+  const wavBlob = audioBufferToWavBuffer(newBuf);
+  return wavBlob;
+}
+
+/* Save clip */
+saveClipBtn.addEventListener('click', async ()=>{
+  try{
+    const item = playlist[current]; if(!item) return alert('Chagua wimbo/video kwanza.');
+    const s = parseFloat(startInput.value) || (item.type==='video'? videoEl.currentTime : audio.currentTime);
+    const e = parseFloat(endInput.value) || (item.type==='video'? videoEl.currentTime : audio.currentTime);
+    if(item.type==='audio'){
+      const wav = await createTrimmedWav(item, s, e);
+      const id = await saveClipBlobToDB((item.title||'clip') + `_${s.toFixed(1)}-${e.toFixed(1)}.wav`, wav);
+      savedClips.push({id, name:(item.title||'clip'), type:'audio', start:s, end:e, created:Date.now()});
+      saveMeta(); clipsCount.textContent = savedClips.length;
+      alert('Clip imehifadhiwa (wav) offline.');
+    } else {
+      // for video -> record playback via MediaRecorder
+      alert('Kuanza kurekodi video clip: app itacheza segimenti kisha kurekodi. Endelea..');
+      await recordVideoSegmentAndSave(item, s, e);
+    }
+  }catch(err){ console.error(err); alert('Kosa: ' + err.message); }
+});
+
+/* Preview trimmed segment (play without saving) */
+trimPreviewBtn.addEventListener('click', async ()=>{
+  const item = playlist[current]; if(!item) return alert('Chagua wimbo kwanza');
+  const s = parseFloat(startInput.value) || 0;
+  const e = parseFloat(endInput.value) || (item.type==='audio' ? audio.duration : videoEl.duration);
+  if(item.type==='audio'){
+    const wav = await createTrimmedWav(item, s, e);
+    const url = URL.createObjectURL(wav);
+    const win = new Audio(url); win.play();
+  } else {
+    // for video, play range in video element
+    const oldTime = videoEl.currentTime;
+    videoEl.currentTime = s;
+    videoEl.play();
+    const onTime = ()=>{ if(videoEl.currentTime >= e){ videoEl.pause(); videoEl.removeEventListener('timeupdate', onTime); videoEl.currentTime = oldTime; } };
+    videoEl.addEventListener('timeupdate', onTime);
+  }
+});
+
+/* Download trimmed (without saving) */
+downloadTrimBtn.addEventListener('click', async ()=>{
+  const item = playlist[current]; if(!item) return alert('Chagua wimbo kwanza');
+  const s = parseFloat(startInput.value) || 0;
+  const e = parseFloat(endInput.value) || (item.type==='audio' ? audio.duration : videoEl.duration);
+  if(item.type==='audio'){
+    const wav = await createTrimmedWav(item, s, e);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(wav); a.download = (item.title||'clip') + `_${s.toFixed(1)}-${e.toFixed(1)}.wav`; document.body.appendChild(a); a.click(); a.remove();
+  } else {
+    alert('Download ya video trim inahitaji kurekodi (tumia Record Video Clip).');
+  }
+});
+
+/* Export current audio to WAV (full file) */
+exportWavBtn.addEventListener('click', async ()=>{
+  const item = playlist[current]; if(!item) return alert('Chagua wimbo kwanza');
+  if(item.type!=='audio') return alert('Hii ni kwa audio tu.');
+  const wav = await createTrimmedWav(item, 0, (await decodeAudioBufferFor(item)).duration);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(wav); a.download = (item.title||'audio') + '.wav'; document.body.appendChild(a); a.click(); a.remove();
+});
+
+/* Record video segment by playing and capturing via MediaRecorder */
+async function recordVideoSegmentAndSave(item, startSec, endSec){
+  // ensure we have video source
+  const src = await resolveSource(item);
+  if(!src) return alert('Video source not available');
+  const blob = await (item.id ? getFileFromDB(item.id) : (await fetch(src)).blob());
+  // create temporary video element to play segment muted (so recording includes original audio)
+  const tmpV = document.createElement('video'); tmpV.muted = false; tmpV.controls=false; tmpV.src = URL.createObjectURL(blob);
+  tmpV.crossOrigin = "anonymous";
+  await tmpV.play().catch(()=>{}); tmpV.pause();
+  tmpV.currentTime = startSec;
+  // create capture stream
+  const stream = tmpV.captureStream ? tmpV.captureStream() : tmpV.mozCaptureStream ? tmpV.mozCaptureStream() : null;
+  if(!stream) return alert('Browser yako hai-support captureStream for video.');
+  const recorder = new MediaRecorder(stream, {mimeType: 'video/webm;codecs=vp8,opus'});
+  const chunks = [];
+  recorder.ondataavailable = e=>chunks.push(e.data);
+  recorder.start(100);
+  tmpV.play();
+  const wait = ()=> new Promise(res=>{ const check = ()=>{ if(tmpV.currentTime >= endSec || tmpV.ended){ tmpV.pause(); recorder.stop(); tmpV.removeEventListener('timeupdate', check); } }; tmpV.addEventListener('timeupdate', check); recorder.onstop = ()=>res();});
+  await wait();
+  const outBlob = new Blob(chunks, {type:'video/webm'});
+  const id = await saveClipBlobToDB((item.title||'vclip') + `_${startSec.toFixed(1)}-${endSec.toFixed(1)}.webm`, outBlob);
+  savedClips.push({id, name:item.title, type:'video', start:startSec, end:endSec, created:Date.now()});
+  saveMeta(); clipsCount.textContent = savedClips.length;
+  alert('Video clip imehifadhiwa offline (webm).');
+}
+
+/* View Clips (simple UI prompt list) */
+openClips.addEventListener('click', async ()=>{
+  let menu = 'Saved Clips:\\n';
+  savedClips.forEach((c,i)=> menu += `${i+1}. ${c.name} [${c.type}] ${c.start||''}-${c.end||''} (id:${c.id})\\n`);
+  const idx = prompt(menu + '\\nIngiza namba ya clip ili ku-play/download, au Cancel');
+  if(!idx) return;
+  const i = Number(idx)-1; if(i<0||i>=savedClips.length) return;
+  const clip = savedClips[i];
+  const blob = await getClipFromDB(clip.id);
+  const url = URL.createObjectURL(blob);
+  if(clip.type==='audio'){ new Audio(url).play(); } else { const w = window.open(url); }
+});
+
+/* Merge selected clips (audio only): We'll ask user to input indices to merge */
+mergeClipsBtn.addEventListener('click', async ()=>{
+  if(savedClips.length<2) return alert('Hifadhi vipande vya audio kwanza (2+).');
+  let list = 'Chagua vipande vya merge kwa kuingiza nambari zilizo hapa (comma separated)\\n';
+  savedClips.forEach((c,i)=>{ if(c.type==='audio') list += `${i+1}. ${c.name} ${c.start}-${c.end}\\n`});
+  const inp = prompt(list);
+  if(!inp) return;
+  const indices = inp.split(',').map(x=>Number(x.trim())-1).filter(i=>i>=0 && i<savedClips.length && savedClips[i].type==='audio');
+  if(indices.length<2) return alert('Chagua angalau vipande 2 vya audio.');
+  // decode each clip into AudioBuffer, concatenate, export WAV
+  ensureAudioCtx();
+  const buffers = [];
+  for(const idx of indices){
+    const clip = savedClips[idx];
+    const blob = await getClipFromDB(clip.id);
+    const ab = await blob.arrayBuffer();
+    const audioBuf = await audioCtx.decodeAudioData(ab.slice(0));
+    buffers.push(audioBuf);
+  }
+  // compute total length and number of channels (use first buffer channels)
+  const numberOfChannels = buffers[0].numberOfChannels;
+  const sampleRate = buffers[0].sampleRate;
+  let totalLength = buffers.reduce((acc,b)=>acc + b.length, 0);
+  const newBuf = audioCtx.createBuffer(numberOfChannels, totalLength, sampleRate);
+  let offset=0;
+  for(const b of buffers){
+    for(let ch=0; ch<numberOfChannels; ch++){
+      const data = b.getChannelData(ch);
+      newBuf.copyToChannel(data, ch, offset);
+    }
+    offset += b.length;
+  }
+  const wavBlob = audioBufferToWavBuffer(newBuf);
+  const newId = await saveClipBlobToDB('merged_'+Date.now()+'.wav', wavBlob);
+  savedClips.push({id:newId, name:'merged', type:'audio', start:0, end: Math.round(newBuf.length/sampleRate), created:Date.now()});
+  saveMeta(); clipsCount.textContent = savedClips.length;
+  alert('Vipande vimeunganishwa na kuhifadhiwa offline kama WAV.');
+});
+
+/* Clear playlist */
+clearBtn.addEventListener('click', ()=>{ if(confirm('Futa playlist yote?')){ playlist=[]; current=-1; saveMeta(); renderPlaylist(); } });
+
+/* track resume */
+if(current>=0 && playlist[current]){
+  // attempt to resume from saved position
+  const key = playlist[current].id || playlist[current].url;
+  if(resumePositions[key]){
+    // when user starts play, resume
+    // we'll resume in loadIndex
+  }
+}
+if(resumeToggle.checked){
+  // attempt to resume on load
+}
+
+/* on page unload, revoke object URLs */
+window.addEventListener('beforeunload', ()=>{ try{ playlist.forEach(it=>{ if(it._blobUrl) URL.revokeObjectURL(it._blobUrl); }); }catch(e){} });
+
+/* update clips count UI */
+clipsCount.textContent = savedClips.length;
+
+/* keyboard shortcuts */
+document.addEventListener('keydown',(e)=>{
+  if(e.code==='Space'){ e.preventDefault(); playCurrent(); }
+  if(e.code==='ArrowRight'){ nextBtn.click(); }
+  if(e.code==='ArrowLeft'){ prevBtn.click(); }
+});
+
+})(); // end async IIFE
+</script>
+</body>
+</html>
